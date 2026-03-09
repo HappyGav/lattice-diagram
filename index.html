@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lattice Diagram Visualizer — ECE 368</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --accent: #00d4aa;
+    --accent2: #ff6b6b;
+    --accent3: #ffd700;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --forward: #00d4aa;
+    --backward: #ff6b6b;
+    --source-bg: #1a2744;
+    --load-bg: #1a3a2a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr 300px;
+    gap: 20px;
+    max-width: 1400px;
+  }
+
+  /* LEFT PANEL — scenario picker */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .panel-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .scenario-btn {
+    display: block;
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    color: var(--text);
+  }
+
+  .scenario-btn:hover {
+    border-color: var(--accent);
+    background: #1a2a35;
+  }
+
+  .scenario-btn.active {
+    border-color: var(--accent);
+    background: #0d2228;
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .scenario-btn .name {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 3px;
+  }
+
+  .scenario-btn .desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .params {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .param-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+
+  .param-label { color: var(--muted); }
+  .param-val {
+    font-family: 'Space Mono', monospace;
+    color: var(--accent3);
+    font-size: 12px;
+  }
+
+  .rho-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .rho-box {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 6px 10px;
+    text-align: center;
+    flex: 1;
+    margin: 0 3px;
+  }
+
+  .rho-box .rho-label { font-size: 10px; color: var(--muted); }
+  .rho-box .rho-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  /* CENTER — lattice canvas */
+  .lattice-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+  }
+
+  .lattice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    transition: all 0.2s;
+  }
+
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+  .btn.primary:hover { background: #00ffcc; }
+
+  canvas {
+    display: block;
+    width: 100%;
+    border-radius: 8px;
+    background: #0a0f14;
+  }
+
+  /* RIGHT PANEL — wave log */
+  .wave-log {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-height: 580px;
+    overflow-y: auto;
+  }
+
+  .wave-log::-webkit-scrollbar { width: 4px; }
+  .wave-log::-webkit-scrollbar-track { background: var(--surface2); }
+  .wave-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .wave-entry {
+    padding: 10px 12px;
+    border-left: 3px solid transparent;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    opacity: 0.3;
+    transition: opacity 0.4s;
+  }
+
+  .wave-entry.visible { opacity: 1; }
+
+  .wave-entry.forward { border-left-color: var(--forward); }
+  .wave-entry.backward { border-left-color: var(--backward); }
+  .wave-entry.event { border-left-color: var(--accent3); background: #1a1600; }
+
+  .wave-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+    margin-bottom: 3px;
+  }
+
+  .wave-desc { color: var(--text); line-height: 1.5; }
+  .wave-math {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    margin-top: 4px;
+    padding: 4px 8px;
+    background: var(--surface2);
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .wave-math.fwd { color: var(--forward); }
+  .wave-math.bwd { color: var(--backward); }
+  .wave-math.total { color: var(--accent3); }
+
+  .step-counter {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    font-size: 11px;
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .legend-dot {
+    width: 20px;
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  .formula-strip {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  .formula-strip span { color: var(--accent3); }
+</style>
+</head>
+<body>
+
+<h1>Lattice Diagram Visualizer</h1>
+<p class="subtitle">ECE 368 — Signal Transmission &nbsp;|&nbsp; Step through each wave reflection</p>
+
+<div class="layout">
+
+  <!-- LEFT: Scenarios -->
+  <div class="panel">
+    <div class="panel-title">Scenarios</div>
+
+    <button class="scenario-btn active" onclick="loadScenario(0)">
+      <div class="name">1. Matched Source + Open Load</div>
+      <div class="desc">RS=Z0, RL=∞ &nbsp;|&nbsp; ρS=0, ρL=+1<br>Wave bounces once, absorbed at source</div>
+    </button>
+
+    <button class="scenario-btn" onclick="loadScenario(1)">
+      <div class="name">2. Matched Source + Short Load</div>
+      <div class="desc">RS=Z0, RL=0 &nbsp;|&nbsp; ρS=0, ρL=−1<br>Wave bounces once, flipped, absorbed</div>
+    </button>
+
+    <button class="scenario-btn" onclick="loadScenario(2)">
+      <div class="name">3. Matched Both Ends</div>
+      <div class="desc">RS=Z0, RL=Z0 &nbsp;|&nbsp; ρS=0, ρL=0<br>No reflections at all — ideal case</div>
+    </button>
+
+    <button class="scenario-btn" onclick="loadScenario(3)">
+      <div class="name">4. Unmatched Both Ends</div>
+      <div class="desc">RS=Z0/2, RL=3×Z0 &nbsp;|&nbsp; Multiple bounces<br>Watch voltage build up to steady state</div>
+    </button>
+
+    <button class="scenario-btn" onclick="loadScenario(4)">
+      <div class="name">5. Capacitive Load (Our Problem)</div>
+      <div class="desc">RS=Z0, Cap load &nbsp;|&nbsp; ρS=0<br>Starts as short, charges to open</div>
+    </button>
+
+    <div class="params" id="params-display"></div>
+
+    <div class="formula-strip" id="formula-display"></div>
+  </div>
+
+  <!-- CENTER: Canvas -->
+  <div class="lattice-wrap">
+    <div class="lattice-header">
+      <div>
+        <div class="panel-title" style="margin-bottom:4px">Lattice Diagram</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#00d4aa"></div> Forward wave →</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b"></div> ← Reflected wave</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ffd700"></div> Voltage total</div>
+        </div>
+      </div>
+      <div class="controls">
+        <span class="step-counter" id="step-counter">Step 0 / 0</span>
+        <button class="btn" onclick="resetDiagram()">Reset</button>
+        <button class="btn" onclick="prevStep()">◀ Prev</button>
+        <button class="btn primary" onclick="nextStep()">Next ▶</button>
+        <button class="btn" onclick="autoPlay()">Auto ▶▶</button>
+      </div>
+    </div>
+    <canvas id="latticeCanvas" width="800" height="520"></canvas>
+  </div>
+
+  <!-- RIGHT: Wave log -->
+  <div class="panel">
+    <div class="panel-title">Wave Log</div>
+    <div class="wave-log" id="wave-log"></div>
+  </div>
+
+</div>
+
+<script>
+const canvas = document.getElementById('latticeCanvas');
+const ctx = canvas.getContext('2d');
+
+// Scenarios
+const scenarios = [
+  {
+    name: "Matched Source + Open Load",
+    Vs: 10, RS_factor: 1, RL_factor: Infinity,
+    rhoS: 0, rhoL: 1,
+    Z0: 50,
+    steps: [
+      { t: 0,   type: 'launch',   from: 'source', to: 'load',   label: 'V₀⁺ launched',      calc: 'V₀⁺ = Vs×Z0/(RS+Z0) = 10×50/100 = 5V',   val: 5,    dir: 'fwd' },
+      { t: 1,   type: 'arrive',   at: 'load',     label: 'Wave arrives at LOAD (open)',       calc: 'ρL = +1  →  Vrefl = +1 × 5V = +5V',       val: 5,    dir: 'bwd' },
+      { t: 1,   type: 'total',    at: 'load',     label: 'Total voltage at load',             calc: 'VL = V0+ + Vrefl = 5 + 5 = 10V = Vs ✓',   val: 10,   dir: 'total' },
+      { t: 2,   type: 'arrive',   at: 'source',   label: 'Reflection arrives at SOURCE',      calc: 'ρS = 0  →  absorbed, nothing bounces back', val: 0,    dir: 'fwd' },
+      { t: 2,   type: 'total',    at: 'source',   label: 'Total voltage at input',            calc: 'Vin = V0+ + Vrefl = 5 + 5 = 10V = Vs ✓',  val: 10,   dir: 'total' },
+      { t: 99,  type: 'ss',       label: 'STEADY STATE reached',                             calc: 'Vss = Vs×RL/(RS+RL) → RL=∞ → Vss = 10V',  val: 10,   dir: 'total' },
+    ]
+  },
+  {
+    name: "Matched Source + Short Load",
+    Vs: 10, RS_factor: 1, RL_factor: 0,
+    rhoS: 0, rhoL: -1,
+    Z0: 50,
+    steps: [
+      { t: 0,   type: 'launch',  from: 'source', to: 'load',  label: 'V₀⁺ launched',         calc: 'V₀⁺ = Vs/2 = 5V  (matched source)',        val: 5,   dir: 'fwd' },
+      { t: 1,   type: 'arrive',  at: 'load',     label: 'Wave arrives at LOAD (short)',       calc: 'ρL = −1  →  Vrefl = −1 × 5V = −5V',       val: -5,  dir: 'bwd' },
+      { t: 1,   type: 'total',   at: 'load',     label: 'Total voltage at load',              calc: 'VL = 5 + (−5) = 0V  (short forces V=0) ✓', val: 0,   dir: 'total' },
+      { t: 2,   type: 'arrive',  at: 'source',   label: 'Reflection arrives at SOURCE',       calc: 'ρS = 0  →  absorbed completely',            val: 0,   dir: 'fwd' },
+      { t: 2,   type: 'total',   at: 'source',   label: 'Total voltage at input',             calc: 'Vin = 5 + (−5) = 0V',                      val: 0,   dir: 'total' },
+      { t: 99,  type: 'ss',      label: 'STEADY STATE',                                      calc: 'Vss = Vs×0/(RS+0) = 0V  (short = 0V) ✓',   val: 0,   dir: 'total' },
+    ]
+  },
+  {
+    name: "Matched Both Ends",
+    Vs: 10, RS_factor: 1, RL_factor: 1,
+    rhoS: 0, rhoL: 0,
+    Z0: 50,
+    steps: [
+      { t: 0,  type: 'launch', from: 'source', to: 'load', label: 'V₀⁺ launched',            calc: 'V₀⁺ = Vs/2 = 5V',                          val: 5,  dir: 'fwd' },
+      { t: 1,  type: 'arrive', at: 'load',     label: 'Wave arrives at LOAD (matched)',       calc: 'ρL = 0  →  Vrefl = 0 × 5V = 0V  absorbed', val: 0,  dir: 'bwd' },
+      { t: 1,  type: 'total',  at: 'load',     label: 'Total voltage at load',                calc: 'VL = 5 + 0 = 5V = Vs/2',                   val: 5,  dir: 'total' },
+      { t: 99, type: 'ss',     label: 'STEADY STATE — no bouncing ever',                     calc: 'Vss = Vs×Z0/(Z0+Z0) = 5V ✓',               val: 5,  dir: 'total' },
+    ]
+  },
+  {
+    name: "Unmatched Both Ends",
+    Vs: 10, RS_factor: 0.5, RL_factor: 3,
+    rhoS: -0.333, rhoL: 0.5,
+    Z0: 50,
+    steps: [
+      { t: 0,  type: 'launch', from: 'source', to: 'load',  label: 'V₀⁺ launched',           calc: 'V₀⁺ = 10×50/(25+50) = 6.67V',              val: 6.67, dir: 'fwd' },
+      { t: 1,  type: 'arrive', at: 'load',     label: 'Wave hits LOAD (RL=3Z0)',              calc: 'ρL=0.5 → Vrefl = 0.5×6.67 = 3.33V',        val: 3.33, dir: 'bwd' },
+      { t: 1,  type: 'total',  at: 'load',     label: 'Voltage at load after 1st wave',       calc: 'VL = 6.67+3.33 = 10V',                     val: 10,   dir: 'total' },
+      { t: 2,  type: 'arrive', at: 'source',   label: 'Reflection hits SOURCE (RS=Z0/2)',     calc: 'ρS=−0.333 → re-refl = −0.333×3.33=−1.11V', val: -1.11,dir: 'fwd' },
+      { t: 2,  type: 'total',  at: 'source',   label: 'Voltage at source',                    calc: 'Vin = 6.67+3.33+(−1.11) = 8.89V',          val: 8.89, dir: 'total' },
+      { t: 3,  type: 'arrive', at: 'load',     label: '2nd wave hits LOAD',                   calc: 'ρL=0.5 → Vrefl = 0.5×(−1.11) = −0.56V',   val: -0.56,dir: 'bwd' },
+      { t: 3,  type: 'total',  at: 'load',     label: 'Voltage at load after 2nd wave',       calc: 'VL = 10+(−1.11)+(−0.56) = 8.33V → → 7.5V',val: 8.33, dir: 'total' },
+      { t: 99, type: 'ss',     label: 'STEADY STATE (converging)',                            calc: 'Vss = Vs×RL/(RS+RL) = 10×150/175 = 7.5V', val: 7.5,  dir: 'total' },
+    ]
+  },
+  {
+    name: "Capacitive Load (Our Problem)",
+    Vs: 10, RS_factor: 1, RL_factor: 'C',
+    rhoS: 0, rhoL: 'varies',
+    Z0: 100,
+    steps: [
+      { t: 0,   type: 'launch', from: 'source', to: 'load',  label: 'V₀⁺ launched',          calc: 'V₀⁺ = Vs/2 = 5V  (RS=Z0 matched)',         val: 5,   dir: 'fwd' },
+      { t: 1,   type: 'arrive', at: 'load',     label: 'Wave hits CAPACITOR at t=T',          calc: 'Cap uncharged → acts like SHORT → ρL=−1',   val: -5,  dir: 'bwd' },
+      { t: 1,   type: 'total',  at: 'load',     label: 'Voltage starts charging from 0V',     calc: 'VL(T) = 0V initially, then charges with τ=Z0C', val: 0, dir: 'total' },
+      { t: 1.5, type: 'event',  label: 'Capacitor charging... (ts = Z0·C = 400ns)',           calc: 'vL(t) = Vs(1 − e^(−(t−T)/ts))·u(t−T)',    val: null, dir: 'event' },
+      { t: 2,   type: 'arrive', at: 'source',   label: 'Reflection arrives at SOURCE',        calc: 'ρS = 0 → absorbed. No more bounces!',       val: 0,   dir: 'fwd' },
+      { t: 2,   type: 'total',  at: 'source',   label: 'Formula valid: T < t < 3T only',      calc: 'Next wave would arrive at t=3T=9ns',        val: null, dir: 'event' },
+      { t: 99,  type: 'ss',     label: 'STEADY STATE (cap fully charged)',                    calc: 'Cap charged → open circuit → Vss = 10V',    val: 10,  dir: 'total' },
+    ]
+  },
+];
+
+let currentScenario = 0;
+let currentStep = -1;
+let autoInterval = null;
+let drawnWaves = [];
+
+function loadScenario(idx) {
+  currentScenario = idx;
+  currentStep = -1;
+  drawnWaves = [];
+  document.querySelectorAll('.scenario-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  updateParamsDisplay();
+  drawBase();
+  updateLog();
+  document.getElementById('step-counter').textContent = `Step 0 / ${scenarios[idx].steps.length}`;
+}
+
+function updateParamsDisplay() {
+  const s = scenarios[currentScenario];
+  const rhoLStr = typeof s.rhoL === 'number' ? s.rhoL.toFixed(3) : s.rhoL;
+  document.getElementById('params-display').innerHTML = `
+    <div class="param-row"><span class="param-label">Vs</span><span class="param-val">${s.Vs}V</span></div>
+    <div class="param-row"><span class="param-label">Z0</span><span class="param-val">${s.Z0}Ω</span></div>
+    <div class="param-row"><span class="param-label">RS</span><span class="param-val">${s.RS_factor === 1 ? s.Z0+'Ω (matched)' : (s.RS_factor*s.Z0)+'Ω'}</span></div>
+    <div class="param-row"><span class="param-label">RL</span><span class="param-val">${s.RL_factor === Infinity ? '∞ (open)' : s.RL_factor === 0 ? '0 (short)' : s.RL_factor === 'C' ? 'Capacitor' : (s.RL_factor*s.Z0)+'Ω'}</span></div>
+    <div class="rho-row">
+      <div class="rho-box"><div class="rho-label">ρS</div><div class="rho-val" style="color:${s.rhoS===0?'#00d4aa':'#ff6b6b'}">${s.rhoS}</div></div>
+      <div class="rho-box"><div class="rho-label">ρL</div><div class="rho-val" style="color:${rhoLStr==='0'?'#00d4aa':rhoLStr==='+1'||rhoLStr==='1'?'#ffd700':'#ff6b6b'}">${rhoLStr}</div></div>
+    </div>
+  `;
+  document.getElementById('formula-display').innerHTML =
+    `V₀⁺ = <span>${s.Vs}×${s.Z0}/(${s.RS_factor*s.Z0}+${s.Z0}) = ${(s.Vs*s.Z0/(s.RS_factor*s.Z0+s.Z0)).toFixed(2)}V</span><br>` +
+    `Vss = <span>${s.RL_factor===Infinity?s.Vs+'V':s.RL_factor===0?'0V':s.RL_factor==='C'?s.Vs+'V (fully charged)':((s.Vs*s.RL_factor*s.Z0)/((s.RS_factor*s.Z0)+(s.RL_factor*s.Z0))).toFixed(2)+'V'}</span>`;
+}
+
+// Canvas dimensions
+const W = 800, H = 520;
+const PAD_L = 80, PAD_R = 80, PAD_T = 60, PAD_B = 40;
+const SRC_X = PAD_L;
+const LOAD_X = W - PAD_R;
+const LINE_W = LOAD_X - SRC_X;
+const MAX_T = 4; // show 4T rows
+const T_STEP = (H - PAD_T - PAD_B) / MAX_T;
+
+function tY(t) { return PAD_T + t * T_STEP; }
+
+function drawBase() {
+  canvas.width = W; canvas.height = H;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#0a0f14';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines (horizontal, time marks)
+  for (let t = 0; t <= MAX_T; t++) {
+    const y = tY(t);
+    ctx.strokeStyle = '#1a2535';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.moveTo(SRC_X, y); ctx.lineTo(LOAD_X, y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Source line (vertical)
+  ctx.strokeStyle = '#1a4060';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(SRC_X, PAD_T - 20); ctx.lineTo(SRC_X, H - PAD_B + 10); ctx.stroke();
+
+  // Load line (vertical)
+  ctx.strokeStyle = '#1a4a2a';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(LOAD_X, PAD_T - 20); ctx.lineTo(LOAD_X, H - PAD_B + 10); ctx.stroke();
+
+  // Labels
+  ctx.font = 'bold 13px Space Mono';
+  ctx.fillStyle = '#00d4aa';
+  ctx.textAlign = 'center';
+  ctx.fillText('SOURCE', SRC_X, PAD_T - 28);
+  ctx.fillText('(z = 0)', SRC_X, PAD_T - 14);
+
+  ctx.fillStyle = '#7feba0';
+  ctx.fillText('LOAD', LOAD_X, PAD_T - 28);
+  ctx.fillText('(z = l)', LOAD_X, PAD_T - 14);
+
+  // Time axis labels
+  ctx.font = '11px Space Mono';
+  ctx.textAlign = 'right';
+  for (let t = 0; t <= MAX_T; t++) {
+    ctx.fillStyle = t === 0 ? '#ffd700' : '#8b949e';
+    ctx.fillText(t === 0 ? 't = 0' : `t = ${t}T`, SRC_X - 8, tY(t) + 4);
+  }
+
+  // Scenario label
+  ctx.font = '12px DM Sans';
+  ctx.fillStyle = '#8b949e';
+  ctx.textAlign = 'left';
+  ctx.fillText(scenarios[currentScenario].name, SRC_X + 10, PAD_T - 28);
+}
+
+function drawArrow(x1, y1, x2, y2, color, label, valLabel) {
+  const fwd = x2 > x1;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 8;
+  ctx.setLineDash([]);
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  // Arrowhead
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const len = 10;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - len * Math.cos(angle - 0.4), y2 - len * Math.sin(angle - 0.4));
+  ctx.lineTo(x2 - len * Math.cos(angle + 0.4), y2 - len * Math.sin(angle + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+
+  // Label along the arrow
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  ctx.font = 'bold 12px Space Mono';
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.fillText(label, mx, my - 10);
+  if (valLabel) {
+    ctx.font = '11px DM Sans';
+    ctx.fillStyle = '#ffd700';
+    ctx.fillText(valLabel, mx, my + 16);
+  }
+}
+
+function drawDot(x, y, color, label) {
+  ctx.beginPath();
+  ctx.arc(x, y, 6, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 12;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  if (label) {
+    ctx.font = 'bold 12px Space Mono';
+    ctx.fillStyle = '#ffd700';
+    ctx.textAlign = x > W / 2 ? 'right' : 'left';
+    const offset = x > W / 2 ? -14 : 14;
+    ctx.fillText(label, x + offset, y + 4);
+  }
+}
+
+function nextStep() {
+  const s = scenarios[currentScenario];
+  if (currentStep >= s.steps.length - 1) return;
+  currentStep++;
+  drawBase();
+  renderSteps();
+  updateLog();
+  document.getElementById('step-counter').textContent = `Step ${currentStep + 1} / ${s.steps.length}`;
+}
+
+function prevStep() {
+  if (currentStep < 0) return;
+  currentStep--;
+  drawBase();
+  renderSteps();
+  updateLog();
+  const s = scenarios[currentScenario];
+  document.getElementById('step-counter').textContent = `Step ${currentStep + 1} / ${s.steps.length}`;
+}
+
+function resetDiagram() {
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; }
+  currentStep = -1;
+  drawBase();
+  updateLog();
+  document.getElementById('step-counter').textContent = `Step 0 / ${scenarios[currentScenario].steps.length}`;
+}
+
+function autoPlay() {
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; return; }
+  autoInterval = setInterval(() => {
+    const s = scenarios[currentScenario];
+    if (currentStep >= s.steps.length - 1) { clearInterval(autoInterval); autoInterval = null; return; }
+    nextStep();
+  }, 1400);
+}
+
+function renderSteps() {
+  const s = scenarios[currentScenario];
+  let waveStack = []; // track running voltages
+
+  for (let i = 0; i <= currentStep; i++) {
+    const step = s.steps[i];
+    if (!step) continue;
+
+    if (step.type === 'launch') {
+      const y0 = tY(0);
+      const y1 = tY(1);
+      drawArrow(SRC_X, y0, LOAD_X, y1, '#00d4aa', 'V₀⁺', `${step.val}V →`);
+      drawDot(SRC_X, y0, '#00d4aa', null);
+    }
+
+    if (step.type === 'arrive' && step.at === 'load') {
+      const t = step.t;
+      const prevT = t - 1;
+      if (step.val !== 0 && step.val !== null) {
+        const y0 = tY(t);
+        const y1 = tY(t + 1);
+        const col = step.val > 0 ? '#ffaa44' : '#ff6b6b';
+        drawArrow(LOAD_X, y0, SRC_X, y1, col, `ρL·V`, `${step.val > 0 ? '+' : ''}${step.val}V ←`);
+      }
+      if (step.val === 0) {
+        drawDot(LOAD_X, tY(t), '#00d4aa', 'absorbed');
+      }
+    }
+
+    if (step.type === 'arrive' && step.at === 'source') {
+      const t = step.t;
+      if (step.val !== 0 && step.val !== null) {
+        const y0 = tY(t);
+        const y1 = tY(t + 1);
+        drawArrow(SRC_X, y0, LOAD_X, y1, '#aa88ff', `ρS·V`, `${step.val}V →`);
+      } else {
+        // absorbed
+        ctx.font = '11px DM Sans';
+        ctx.fillStyle = '#00d4aa';
+        ctx.textAlign = 'left';
+        ctx.fillText('⊗ absorbed (ρS=0)', SRC_X + 10, tY(t) - 8);
+        drawDot(SRC_X, tY(t), '#00d4aa', null);
+      }
+    }
+
+    if (step.type === 'total') {
+      const x = step.at === 'load' ? LOAD_X : SRC_X;
+      const y = tY(step.t) + (step.at === 'load' ? 16 : 16);
+      ctx.font = 'bold 12px Space Mono';
+      ctx.fillStyle = '#ffd700';
+      ctx.textAlign = step.at === 'load' ? 'right' : 'left';
+      const offset = step.at === 'load' ? -10 : 10;
+      if (step.val !== null) {
+        ctx.fillText(`Vtotal=${step.val}V`, x + offset, y);
+      }
+    }
+
+    if (step.type === 'ss') {
+      ctx.font = 'bold 13px Space Mono';
+      ctx.fillStyle = '#ffd700';
+      ctx.textAlign = 'center';
+      ctx.fillText(`── STEADY STATE: ${step.val}V ──`, W / 2, H - PAD_B - 8);
+    }
+
+    if (step.type === 'event') {
+      ctx.font = '11px DM Sans';
+      ctx.fillStyle = '#bb88ff';
+      ctx.textAlign = 'center';
+      ctx.fillText(step.label, W / 2, tY(step.t) + 20);
+    }
+  }
+}
+
+function updateLog() {
+  const s = scenarios[currentScenario];
+  const log = document.getElementById('wave-log');
+  log.innerHTML = '';
+
+  s.steps.forEach((step, i) => {
+    const div = document.createElement('div');
+    const typeClass = step.dir === 'fwd' ? 'forward' : step.dir === 'bwd' ? 'backward' : step.dir === 'event' ? 'event' : 'forward';
+    div.className = `wave-entry ${typeClass} ${i <= currentStep ? 'visible' : ''}`;
+
+    const tLabel = step.t === 99 ? 't → ∞' : `t = ${step.t}T`;
+    div.innerHTML = `
+      <div class="wave-time">${tLabel}</div>
+      <div class="wave-desc">${step.label}</div>
+      <div class="wave-math ${step.dir}">${step.calc}</div>
+    `;
+    log.appendChild(div);
+  });
+
+  // scroll to latest
+  const visible = log.querySelectorAll('.visible');
+  if (visible.length > 0) visible[visible.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Init
+loadScenario(0);
+</script>
+</body>
+</html>
